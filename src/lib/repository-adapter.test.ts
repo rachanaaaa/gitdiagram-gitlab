@@ -281,7 +281,7 @@ describe('fetchRepositoryData', () => {
       throw new Error(`Unexpected request: ${url}`);
     });
 
-    await expect(fetchRepositoryData('https://example.com/owner/project', undefined, fetchMock)).resolves.toEqual({
+    await expect(fetchRepositoryData('https://example.com/scm/owner/project', undefined, fetchMock)).resolves.toEqual({
       provider: 'github',
       project: {
         instanceUrl: 'https://example.com',

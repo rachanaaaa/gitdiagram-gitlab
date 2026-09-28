@@ -72,6 +72,8 @@ console.log(repository.project.defaultBranch);
 console.log(repository.files.length);
 ```
 
+The optional `token` must match the detected provider: use a GitLab personal access token for GitLab URLs and a GitHub token for GitHub-style URLs.
+
 ## Data model
 
 The library exports:

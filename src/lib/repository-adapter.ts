@@ -127,10 +127,14 @@ function parseGitHubUrl(input: string): ParsedGitHubUrl {
     throw new Error(`Invalid GitHub repository reference: "${input}"`);
   }
 
+  const isDefaultGitHubHost = url.origin === 'https://github.com';
+  const ownerIndex = isDefaultGitHubHost || segments.length === 2 ? 0 : segments.length - 2;
+  const projectIndex = ownerIndex + 1;
+
   return {
     instanceUrl: url.origin,
-    owner: segments[0]!,
-    project: segments[1]!.replace(/\.git$/i, '')
+    owner: segments[ownerIndex]!,
+    project: segments[projectIndex]!.replace(/\.git$/i, '')
   };
 }
 
@@ -161,6 +165,10 @@ async function fetchGitHubRepositoryData(
 
   const repository = (await repositoryResponse.json()) as GitHubRepositoryResponse;
   const branch = repository.default_branch;
+
+  if (!branch) {
+    throw new Error(`GitHub repository ${owner}/${project} is missing a default branch`);
+  }
   const branchResponse = await fetchImpl(`${apiBaseUrl}/repos/${owner}/${project}/branches/${encodeURIComponent(branch)}`, {
     headers
   });
