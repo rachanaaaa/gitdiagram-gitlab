@@ -8,6 +8,7 @@ interface ParsedGitHubUrl {
 }
 
 interface GitHubRepositoryResponse {
+  id: number;
   name: string;
   description: string | null;
   default_branch: string;
@@ -201,6 +202,7 @@ async function fetchGitHubRepositoryData(
       instanceUrl: 'https://github.com',
       owner,
       project,
+      id: repository.id,
       name: repository.name,
       description: repository.description,
       defaultBranch: branch,
@@ -230,7 +232,24 @@ export async function fetchRepositoryData(
   const repositoryType = detectRepositoryType(url);
   const potentialGitLabInstanceUrl = getPotentialGitLabInstanceUrl(url);
 
-  if (repositoryType === 'gitlab' || (potentialGitLabInstanceUrl && await isGitLabInstance(potentialGitLabInstanceUrl, fetchImpl))) {
+  if (repositoryType === 'gitlab') {
+    const parsed = parseGitLabUrl(url);
+    const client = new GitLabApiClient(parsed.instanceUrl, token, fetchImpl);
+    const metadata = await client.getProjectMetadata(parsed.owner, parsed.project);
+    const branch = metadata.defaultBranch;
+    const files = await client.getFileTree(parsed.owner, parsed.project, branch);
+    const readme = await client.getProjectReadme(parsed.owner, parsed.project, branch, files);
+
+    return {
+      provider: 'gitlab',
+      project: metadata,
+      branch,
+      files,
+      readme
+    };
+  }
+
+  if (potentialGitLabInstanceUrl && await isGitLabInstance(potentialGitLabInstanceUrl, fetchImpl)) {
     const parsed = parseGitLabUrl(url);
     const client = new GitLabApiClient(parsed.instanceUrl, token, fetchImpl);
     const metadata = await client.getProjectMetadata(parsed.owner, parsed.project);

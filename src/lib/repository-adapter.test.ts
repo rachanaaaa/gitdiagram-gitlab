@@ -77,6 +77,7 @@ describe('fetchRepositoryData', () => {
 
       if (url === 'https://api.github.com/repos/owner/project') {
         return createJsonResponse({
+          id: 101,
           name: 'project',
           description: 'GitHub project',
           default_branch: 'main',
@@ -119,6 +120,7 @@ describe('fetchRepositoryData', () => {
         instanceUrl: 'https://github.com',
         owner: 'owner',
         project: 'project',
+        id: 101,
         name: 'project',
         description: 'GitHub project',
         defaultBranch: 'main',
@@ -171,6 +173,12 @@ describe('fetchRepositoryData', () => {
       },
       readme: '# Self-hosted README'
     });
+    expect(fetchMock).toHaveBeenNthCalledWith(1, new URL('/api/v4/version', 'https://example.com'));
+    expect(fetchMock).toHaveBeenNthCalledWith(2, new URL('/api/v4/projects/group%2Fproject', 'https://example.com'), {
+      headers: {
+        Accept: 'application/json'
+      }
+    });
   });
 
   it('preserves non-base64 GitHub README content', async () => {
@@ -179,6 +187,7 @@ describe('fetchRepositoryData', () => {
 
       if (url === 'https://api.github.com/repos/owner/project') {
         return createJsonResponse({
+          id: 202,
           name: 'project',
           description: null,
           default_branch: 'main',
@@ -218,6 +227,7 @@ describe('fetchRepositoryData', () => {
     await expect(fetchRepositoryData('owner/project', 'github-token', fetchMock)).resolves.toMatchObject({
       provider: 'github',
       project: {
+        id: 202,
         visibility: 'private'
       },
       readme: '# Plain README'
