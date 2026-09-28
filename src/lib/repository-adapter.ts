@@ -3,6 +3,7 @@ import { GitLabApiClient } from '../server/gitlab-api.js';
 import type { RepositoryData } from '../types/gitlab.js';
 
 interface ParsedGitHubUrl {
+  instanceUrl: string;
   owner: string;
   project: string;
 }
@@ -127,6 +128,7 @@ function parseGitHubUrl(input: string): ParsedGitHubUrl {
   }
 
   return {
+    instanceUrl: url.origin,
     owner: segments[0]!,
     project: segments[1]!.replace(/\.git$/i, '')
   };
@@ -141,7 +143,8 @@ async function fetchGitHubRepositoryData(
     throw new Error('A fetch implementation is required');
   }
 
-  const { owner, project } = parseGitHubUrl(url);
+  const { instanceUrl, owner, project } = parseGitHubUrl(url);
+  const apiBaseUrl = instanceUrl === 'https://github.com' ? 'https://api.github.com' : `${instanceUrl}/api/v3`;
   const headers: HeadersInit = {
     Accept: 'application/vnd.github+json'
   };
@@ -150,7 +153,7 @@ async function fetchGitHubRepositoryData(
     headers.Authorization = ['Bearer', token].join(' ');
   }
 
-  const repositoryResponse = await fetchImpl(`https://api.github.com/repos/${owner}/${project}`, { headers });
+  const repositoryResponse = await fetchImpl(`${apiBaseUrl}/repos/${owner}/${project}`, { headers });
 
   if (!repositoryResponse.ok) {
     throw new Error(`GitHub repository request failed with status ${repositoryResponse.status}`);
@@ -158,7 +161,7 @@ async function fetchGitHubRepositoryData(
 
   const repository = (await repositoryResponse.json()) as GitHubRepositoryResponse;
   const branch = repository.default_branch;
-  const branchResponse = await fetchImpl(`https://api.github.com/repos/${owner}/${project}/branches/${encodeURIComponent(branch)}`, {
+  const branchResponse = await fetchImpl(`${apiBaseUrl}/repos/${owner}/${project}/branches/${encodeURIComponent(branch)}`, {
     headers
   });
 
@@ -174,7 +177,7 @@ async function fetchGitHubRepositoryData(
   }
 
   const treeResponse = await fetchImpl(
-    `https://api.github.com/repos/${owner}/${project}/git/trees/${encodeURIComponent(treeSha)}?recursive=1`,
+    `${apiBaseUrl}/repos/${owner}/${project}/git/trees/${encodeURIComponent(treeSha)}?recursive=1`,
     { headers }
   );
 
@@ -183,7 +186,7 @@ async function fetchGitHubRepositoryData(
   }
 
   const tree = (await treeResponse.json()) as GitHubTreeResponse;
-  const readmeResponse = await fetchImpl(`https://api.github.com/repos/${owner}/${project}/readme?ref=${encodeURIComponent(branch)}`, {
+  const readmeResponse = await fetchImpl(`${apiBaseUrl}/repos/${owner}/${project}/readme?ref=${encodeURIComponent(branch)}`, {
     headers
   });
 
@@ -199,7 +202,7 @@ async function fetchGitHubRepositoryData(
   return {
     provider: 'github',
     project: {
-      instanceUrl: 'https://github.com',
+      instanceUrl,
       owner,
       project,
       id: repository.id,
@@ -265,5 +268,5 @@ export async function fetchRepositoryData(
     return fetchGitHubRepositoryData(url, token, fetchImpl);
   }
 
-  throw new Error(`Unsupported repository host: ${potentialGitLabInstanceUrl}`);
+  return fetchGitHubRepositoryData(url, token, fetchImpl);
 }

@@ -233,4 +233,71 @@ describe('fetchRepositoryData', () => {
       readme: '# Plain README'
     });
   });
+
+  it('falls back to a GitHub-style API on non-GitLab absolute hosts when the GitLab probe fails', async () => {
+    const fetchMock = vi.fn<typeof fetch>(async (input) => {
+      const url = String(input);
+
+      if (url === 'https://example.com/api/v4/version') {
+        return new Response('not gitlab', { status: 404 });
+      }
+
+      if (url === 'https://example.com/api/v3/repos/owner/project') {
+        return createJsonResponse({
+          id: 303,
+          name: 'project',
+          description: 'Enterprise GitHub project',
+          default_branch: 'main',
+          private: false,
+          html_url: 'https://example.com/owner/project'
+        });
+      }
+
+      if (url === 'https://example.com/api/v3/repos/owner/project/branches/main') {
+        return createJsonResponse({
+          commit: {
+            commit: {
+              tree: {
+                sha: 'tree-sha-enterprise'
+              }
+            }
+          }
+        });
+      }
+
+      if (url === 'https://example.com/api/v3/repos/owner/project/git/trees/tree-sha-enterprise?recursive=1') {
+        return createJsonResponse({
+          tree: [{ path: 'README.md', type: 'blob' }]
+        });
+      }
+
+      if (url === 'https://example.com/api/v3/repos/owner/project/readme?ref=main') {
+        return createJsonResponse({
+          content: Buffer.from('# Enterprise README').toString('base64'),
+          encoding: 'base64'
+        });
+      }
+
+      throw new Error(`Unexpected request: ${url}`);
+    });
+
+    await expect(fetchRepositoryData('https://example.com/owner/project', undefined, fetchMock)).resolves.toEqual({
+      provider: 'github',
+      project: {
+        instanceUrl: 'https://example.com',
+        owner: 'owner',
+        project: 'project',
+        id: 303,
+        name: 'project',
+        description: 'Enterprise GitHub project',
+        defaultBranch: 'main',
+        visibility: 'public',
+        webUrl: 'https://example.com/owner/project'
+      },
+      branch: 'main',
+      files: [{ name: 'README.md', path: 'README.md', type: 'blob' }],
+      readme: '# Enterprise README'
+    });
+    expect(fetchMock).toHaveBeenNthCalledWith(1, new URL('/api/v4/version', 'https://example.com'));
+  });
 });
