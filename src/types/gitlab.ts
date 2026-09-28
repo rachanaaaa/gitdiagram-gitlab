@@ -30,6 +30,7 @@ export interface RepositoryData {
     instanceUrl: string;
     owner: string;
     project: string;
+    id?: number;
     name: string;
     description: string | null;
     defaultBranch: string;

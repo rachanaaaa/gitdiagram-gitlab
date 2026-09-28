@@ -6,12 +6,22 @@ export interface ParsedGitLabUrl {
 
 const DEFAULT_GITLAB_INSTANCE = 'https://gitlab.com';
 
+function stripTrailingSlashes(value: string): string {
+  let end = value.length;
+
+  while (end > 0 && value[end - 1] === '/') {
+    end -= 1;
+  }
+
+  return value.slice(0, end);
+}
+
 function normalizeInput(value: string): string {
-  return value.trim().replace(/\/+$/, '');
+  return stripTrailingSlashes(value.trim());
 }
 
 function normalizeInstanceUrl(value: string): string {
-  return value.replace(/\/+$/, '');
+  return stripTrailingSlashes(value);
 }
 
 function isHostLike(segment: string): boolean {

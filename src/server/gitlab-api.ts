@@ -108,9 +108,8 @@ export class GitLabApiClient {
     return files;
   }
 
-  async getProjectReadme(owner: string, project: string, branch: string): Promise<string | null> {
-    const files = await this.getFileTree(owner, project, branch);
-    const readme = this.findReadmePath(files);
+  async getProjectReadme(owner: string, project: string, branch: string, files?: GitLabFile[]): Promise<string | null> {
+    const readme = this.findReadmePath(files ?? await this.getFileTree(owner, project, branch));
 
     if (!readme) {
       return null;

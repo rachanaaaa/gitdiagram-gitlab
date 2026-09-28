@@ -19,9 +19,61 @@ interface GitHubTreeResponse {
   tree: Array<{ path: string; type: 'blob' | 'tree' }>;
 }
 
+interface GitHubBranchResponse {
+  commit: {
+    commit?: {
+      tree?: {
+        sha: string;
+      };
+    };
+  };
+}
+
 interface GitHubReadmeResponse {
   content: string;
   encoding: string;
+}
+
+function stripTrailingSlashes(value: string): string {
+  let end = value.length;
+
+  while (end > 0 && value[end - 1] === '/') {
+    end -= 1;
+  }
+
+  return value.slice(0, end);
+}
+
+function isHostLikeSegment(segment?: string): boolean {
+  return Boolean(segment && (segment === 'localhost' || segment.includes('.') || segment.includes(':')));
+}
+
+function getPotentialGitLabInstanceUrl(url: string): string | null {
+  const value = url.trim();
+
+  if (value.includes('://')) {
+    const parsed = new URL(value);
+    return parsed.hostname === 'github.com' ? null : parsed.origin;
+  }
+
+  const [pathOnly] = value.split(/[?#]/, 1);
+  const segments = pathOnly.split('/').filter(Boolean);
+  const firstSegment = segments[0];
+
+  if (!isHostLikeSegment(firstSegment) || firstSegment === 'github.com') {
+    return null;
+  }
+
+  return `https://${firstSegment}`;
+}
+
+async function isGitLabInstance(instanceUrl: string, fetchImpl: typeof fetch): Promise<boolean> {
+  try {
+    const response = await fetchImpl(new URL('/api/v4/version', instanceUrl));
+    return response.ok;
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -32,16 +84,22 @@ export function detectRepositoryType(url: string): 'github' | 'gitlab' {
   const value = url.trim().toLowerCase();
   const [pathOnly] = value.split(/[?#]/, 1);
   const segments = pathOnly.split('/').filter(Boolean);
+  const firstSegment = segments[0];
 
   if (value.includes('://')) {
-    return new URL(value).hostname === 'github.com' ? 'github' : 'gitlab';
+    const parsed = new URL(value);
+    return parsed.hostname.includes('gitlab') || parsed.pathname.includes('/-/') ? 'gitlab' : 'github';
   }
 
   if (value.startsWith('github.com/')) {
     return 'github';
   }
 
-  if (segments[0]?.includes('.') || segments[0] === 'localhost' || segments[0]?.includes(':') || value.includes('/-/')) {
+  if (value.startsWith('gitlab.com/') || value.includes('/-/')) {
+    return 'gitlab';
+  }
+
+  if (isHostLikeSegment(firstSegment) && firstSegment.includes('gitlab')) {
     return 'gitlab';
   }
 
@@ -49,7 +107,7 @@ export function detectRepositoryType(url: string): 'github' | 'gitlab' {
 }
 
 function parseGitHubUrl(input: string): ParsedGitHubUrl {
-  const normalized = input.trim().replace(/\/+$/, '');
+  const normalized = stripTrailingSlashes(input.trim());
 
   if (!normalized) {
     throw new Error('GitHub repository URL is required');
@@ -99,9 +157,23 @@ async function fetchGitHubRepositoryData(
 
   const repository = (await repositoryResponse.json()) as GitHubRepositoryResponse;
   const branch = repository.default_branch;
+  const branchResponse = await fetchImpl(`https://api.github.com/repos/${owner}/${project}/branches/${encodeURIComponent(branch)}`, {
+    headers
+  });
+
+  if (!branchResponse.ok) {
+    throw new Error(`GitHub branch request failed with status ${branchResponse.status}`);
+  }
+
+  const branchPayload = (await branchResponse.json()) as GitHubBranchResponse;
+  const treeSha = branchPayload.commit.commit?.tree?.sha;
+
+  if (!treeSha) {
+    throw new Error(`GitHub branch ${branch} did not include a tree SHA`);
+  }
 
   const treeResponse = await fetchImpl(
-    `https://api.github.com/repos/${owner}/${project}/git/trees/${encodeURIComponent(branch)}?recursive=1`,
+    `https://api.github.com/repos/${owner}/${project}/git/trees/${encodeURIComponent(treeSha)}?recursive=1`,
     { headers }
   );
 
@@ -156,23 +228,28 @@ export async function fetchRepositoryData(
   fetchImpl: typeof fetch = globalThis.fetch
 ): Promise<RepositoryData> {
   const repositoryType = detectRepositoryType(url);
+  const potentialGitLabInstanceUrl = getPotentialGitLabInstanceUrl(url);
 
-  if (repositoryType === 'github') {
+  if (repositoryType === 'gitlab' || (potentialGitLabInstanceUrl && await isGitLabInstance(potentialGitLabInstanceUrl, fetchImpl))) {
+    const parsed = parseGitLabUrl(url);
+    const client = new GitLabApiClient(parsed.instanceUrl, token, fetchImpl);
+    const metadata = await client.getProjectMetadata(parsed.owner, parsed.project);
+    const branch = metadata.defaultBranch;
+    const files = await client.getFileTree(parsed.owner, parsed.project, branch);
+    const readme = await client.getProjectReadme(parsed.owner, parsed.project, branch, files);
+
+    return {
+      provider: 'gitlab',
+      project: metadata,
+      branch,
+      files,
+      readme
+    };
+  }
+
+  if (!potentialGitLabInstanceUrl) {
     return fetchGitHubRepositoryData(url, token, fetchImpl);
   }
 
-  const parsed = parseGitLabUrl(url);
-  const client = new GitLabApiClient(parsed.instanceUrl, token, fetchImpl);
-  const metadata = await client.getProjectMetadata(parsed.owner, parsed.project);
-  const branch = metadata.defaultBranch;
-  const files = await client.getFileTree(parsed.owner, parsed.project, branch);
-  const readme = await client.getProjectReadme(parsed.owner, parsed.project, branch);
-
-  return {
-    provider: 'gitlab',
-    project: metadata,
-    branch,
-    files,
-    readme
-  };
+  throw new Error(`Unsupported repository host: ${potentialGitLabInstanceUrl}`);
 }

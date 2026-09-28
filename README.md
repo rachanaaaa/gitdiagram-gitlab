@@ -82,6 +82,7 @@ The library exports:
 - `RepositoryData`
 
 `RepositoryData` is the normalized shape intended for GitDiagram-compatible generation pipelines.
+The `project.id` field is optional and populated when the upstream provider returns a stable repository identifier.
 
 ## Authentication and errors
 
