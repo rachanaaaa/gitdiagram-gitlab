@@ -221,6 +221,27 @@ async function fetchGitHubRepositoryData(
   };
 }
 
+async function fetchGitLabRepositoryData(
+  url: string,
+  token?: string,
+  fetchImpl: typeof fetch = globalThis.fetch
+): Promise<RepositoryData> {
+  const parsed = parseGitLabUrl(url);
+  const client = new GitLabApiClient(parsed.instanceUrl, token, fetchImpl);
+  const metadata = await client.getProjectMetadata(parsed.owner, parsed.project);
+  const branch = metadata.defaultBranch;
+  const files = await client.getFileTree(parsed.owner, parsed.project, branch);
+  const readme = await client.getProjectReadme(parsed.owner, parsed.project, branch, files);
+
+  return {
+    provider: 'gitlab',
+    project: metadata,
+    branch,
+    files,
+    readme
+  };
+}
+
 /**
  * Fetches repository data from either GitHub or GitLab and normalizes the output.
  */
@@ -233,37 +254,11 @@ export async function fetchRepositoryData(
   const potentialGitLabInstanceUrl = getPotentialGitLabInstanceUrl(url);
 
   if (repositoryType === 'gitlab') {
-    const parsed = parseGitLabUrl(url);
-    const client = new GitLabApiClient(parsed.instanceUrl, token, fetchImpl);
-    const metadata = await client.getProjectMetadata(parsed.owner, parsed.project);
-    const branch = metadata.defaultBranch;
-    const files = await client.getFileTree(parsed.owner, parsed.project, branch);
-    const readme = await client.getProjectReadme(parsed.owner, parsed.project, branch, files);
-
-    return {
-      provider: 'gitlab',
-      project: metadata,
-      branch,
-      files,
-      readme
-    };
+    return fetchGitLabRepositoryData(url, token, fetchImpl);
   }
 
   if (potentialGitLabInstanceUrl && await isGitLabInstance(potentialGitLabInstanceUrl, fetchImpl)) {
-    const parsed = parseGitLabUrl(url);
-    const client = new GitLabApiClient(parsed.instanceUrl, token, fetchImpl);
-    const metadata = await client.getProjectMetadata(parsed.owner, parsed.project);
-    const branch = metadata.defaultBranch;
-    const files = await client.getFileTree(parsed.owner, parsed.project, branch);
-    const readme = await client.getProjectReadme(parsed.owner, parsed.project, branch, files);
-
-    return {
-      provider: 'gitlab',
-      project: metadata,
-      branch,
-      files,
-      readme
-    };
+    return fetchGitLabRepositoryData(url, token, fetchImpl);
   }
 
   if (!potentialGitLabInstanceUrl) {

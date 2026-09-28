@@ -84,7 +84,7 @@ describe('GitLabApiClient', () => {
 
     const client = new GitLabApiClient('https://gitlab.example.com', undefined, fetchMock);
     const files = await client.getFileTree('example-org', 'example-project', 'main');
-    const readme = await client.getProjectReadme('example-org', 'example-project', 'main');
+    const readme = await client.getProjectReadme('example-org', 'example-project', 'main', files);
 
     expect(files).toEqual([
       { name: 'src', path: 'src', type: 'tree' },
