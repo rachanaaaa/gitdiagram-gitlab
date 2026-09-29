@@ -3,3 +3,10 @@ dist/
 coverage/
 .vitest/
 *.tsbuildinfo
+.venv/
+.pytest_cache/
+__pycache__/
+*.pyc
+htmlcov/
+*.egg-info/
+.coverage

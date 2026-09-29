@@ -1,0 +1,41 @@
+name: Python package CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test-and-build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Install dependencies
+        run: uv sync --dev
+
+      - name: Run tests
+        run: uv run pytest --cov=gitlabdiagram --cov-report=term-missing
+
+      - name: Build package
+        run: uv build
+
+      - name: Generate repository diagram smoke test
+        env:
+          GITLABDIAGRAM_TOKEN: ${{ github.token }}
+        run: uv run gitlabdiagram --repository-url "https://github.com/${{ github.repository }}" --token "$GITLABDIAGRAM_TOKEN" --output-path artifacts/repository-diagram.svg
+
+      - name: Upload generated diagram artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: repository-diagram
+          path: artifacts/repository-diagram.svg

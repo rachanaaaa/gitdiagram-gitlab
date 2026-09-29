@@ -1,6 +1,6 @@
-# gitdiagram-gitlab
+# gitlabdiagram
 
-A package-first Git repository diagram generator with GitLab support. Install it, run one pipeline function, and save a single diagram image to disk.
+A Python-installable repository diagram generator with GitLab support. Install it, run one pipeline function or CLI command, and save a single SVG diagram image to disk.
 
 ## What it does
 
@@ -11,51 +11,75 @@ A package-first Git repository diagram generator with GitLab support. Install it
 
 ## Installation
 
+For local development from this repository:
+
 ```bash
-bun install gitdiagram-gitlab
+uv sync --dev
 ```
 
-## Usage
+For editable local installation:
 
-```ts
-import { generateDiagramImage } from 'gitdiagram-gitlab';
-
-const result = await generateDiagramImage({
-  repositoryUrl: 'https://gitlab.com/group/project',
-  token: process.env.GITLAB_TOKEN,
-  outputPath: './output/project-diagram.svg'
-});
-
-console.log(result.outputPath);
-console.log(result.imageFormat); // svg
+```bash
+uv pip install -e .
 ```
 
-If `outputPath` is omitted, the package writes `<project>-diagram.svg` into the current working directory.
+After publishing the package to an index, consumer projects can install it with:
+
+```bash
+uv add gitlabdiagram
+```
+
+## Python usage
+
+```python
+from gitlabdiagram import generate_diagram_image
+
+result = generate_diagram_image(
+    "https://gitlab.com/group/project",
+    token=None,
+    output_path="./output/project-diagram.svg",
+)
+
+print(result.output_path)
+print(result.image_format)  # svg
+```
+
+If `output_path` is omitted, the package writes `<project>-diagram.svg` into the current working directory.
+
+## CLI usage
+
+```bash
+gitlabdiagram \
+  --repository-url https://gitlab.com/group/project \
+  --output-path ./output/project-diagram.svg
+```
+
+Use `--token` for private repositories.
+
+## CI/CD workflow
+
+The repository includes `/home/runner/work/gitdiagram-gitlab/gitdiagram-gitlab/.github/workflows/python-package-ci.yml`, which:
+
+1. installs the package with `uv sync --dev`
+2. runs `pytest`
+3. builds the Python package with `uv build`
+4. runs the CLI against the current GitHub repository
+5. uploads the generated SVG as a workflow artifact
+
+A consuming repository can use the same CLI pattern once the package is published.
 
 ## API
 
-### `generateDiagramImage(options)`
+### `generate_diagram_image(...)`
 
 Runs the full package pipeline:
 
-1. Detect repository provider
-2. Fetch repository metadata and structure
-3. Render one SVG diagram image
-4. Save the image to disk
+1. detect repository provider
+2. fetch repository metadata and structure
+3. render one SVG diagram image
+4. save the image to disk
 
-```ts
-await generateDiagramImage({
-  repositoryUrl: 'https://gitlab.example.com/team/platform/project',
-  token: process.env.GITLAB_TOKEN,
-  outputPath: './diagram.svg',
-  maxFiles: 20,
-  width: 1400
-});
-```
-
-The `token` must match the detected provider.
-
-### `renderRepositoryDiagramSvg(repositoryData, options?)`
+### `render_repository_diagram_svg(repository_data, ...)`
 
 Renders a standalone SVG string when you already have normalized repository data.
 
@@ -76,9 +100,9 @@ The package does not generate:
 
 The package also exports:
 
-- `parseGitLabUrl`
-- `detectRepositoryType`
-- `fetchRepositoryData`
+- `parse_gitlab_url`
+- `detect_repository_type`
+- `fetch_repository_data`
 - `GitLabApiClient`
 - `GitLabAuthenticationError`
 - `GitLabNotFoundError`
@@ -87,9 +111,8 @@ The package also exports:
 ## Development
 
 ```bash
-bun test
-bun run build
-bun run coverage
+uv run pytest --cov=gitlabdiagram
+uv build
 ```
 
 ## Contributing

@@ -1,0 +1,27 @@
+[project]
+name = "gitlabdiagram"
+version = "0.1.0"
+description = "Python-installable repository diagram generator with GitLab support and SVG image output"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = []
+
+[project.scripts]
+gitlabdiagram = "gitlabdiagram.cli:main"
+
+[build-system]
+requires = ["hatchling==1.32.4"]
+build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = [
+  "pytest==9.1.1",
+  "pytest-cov==7.1.0",
+]
+
+[tool.pytest.ini_options]
+addopts = "-q"
+testpaths = ["tests"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["gitlabdiagram"]
