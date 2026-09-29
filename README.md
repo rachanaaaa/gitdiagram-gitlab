@@ -1,2 +1,231 @@
-# gitdiagram-gitlab
-GitLab support for GitDiagram - extends the diagrams and video generator to work with GitLab projects
+# gitlabdiagram
+
+A Python-installable repository diagram generator with GitLab support. Install it, run one pipeline function or CLI command, and save a single SVG diagram image to disk.
+
+## What it does
+
+- Fetches repository metadata, file trees, and README content from GitLab
+- Supports GitLab.com, self-hosted GitLab, and GitHub-style repository URLs
+- Renders a single standalone SVG diagram image
+- Saves the image to disk with no frontend, no video generation, and no reel workflow
+
+## Installation
+
+For local development from this repository:
+
+```bash
+uv sync --dev
+```
+
+For editable local installation:
+
+```bash
+uv pip install -e .
+```
+
+After publishing the package to an index, consumer projects can install it with:
+
+```bash
+uv add gitlabdiagram
+```
+
+## Python usage
+
+```python
+from gitlabdiagram import generate_diagram_image
+
+result = generate_diagram_image(
+    "https://gitlab.com/group/project",
+    token=None,
+    output_path="./output/project-diagram.svg",
+)
+
+print(result.output_path)
+print(result.image_format)  # svg
+```
+
+If `output_path` is omitted, the package writes `<project>-diagram.svg` into the current working directory.
+
+## CLI usage
+
+```bash
+gitlabdiagram \
+  --repository-url https://gitlab.com/group/project \
+  --output-path ./output/project-diagram.svg
+```
+
+Use `--token` for private repositories.
+
+## CI/CD workflow
+
+The repository includes `/home/runner/work/gitdiagram-gitlab/gitdiagram-gitlab/.github/workflows/python-package-ci.yml`, which:
+
+1. installs the package with `uv sync --dev`
+2. runs `pytest`
+3. builds the Python package with `uv build`
+4. runs the CLI against the current GitHub repository
+5. uploads the generated SVG as a workflow artifact
+
+## Consumer repository example
+
+If another repository wants to generate its own diagram in CI, do this once in that repository:
+
+```bash
+uv add gitlabdiagram
+```
+
+Then commit the updated `pyproject.toml` and `uv.lock`, and add the workflow from `/home/runner/work/gitdiagram-gitlab/gitdiagram-gitlab/examples/consumer-repo-python-package-ci.yml`.
+
+That workflow will:
+
+1. install the consumer repository dependencies with `uv sync`
+2. run `uv run gitlabdiagram` against `https://github.com/${{ github.repository }}`
+3. upload the generated SVG as a workflow artifact
+
+If the package has not been published yet, replace the one-time install command with:
+
+```bash
+uv add git+https://github.com/rachanaaaa/gitdiagram-gitlab
+```
+
+### Consumer GitHub Actions example
+
+For GitHub-hosted repositories, copy:
+
+- `/home/runner/work/gitdiagram-gitlab/gitdiagram-gitlab/examples/consumer-repo-python-package-ci.yml`
+
+into:
+
+- `.github/workflows/generate-repository-diagram.yml`
+
+### Consumer GitLab CI example
+
+For GitLab-hosted repositories:
+
+1. add the package to the repository:
+
+```bash
+uv add gitlabdiagram
+```
+
+2. set a CI/CD variable named `GITLABDIAGRAM_TOKEN` if the repository is private
+3. copy `/home/runner/work/gitdiagram-gitlab/gitdiagram-gitlab/examples/consumer-repo-gitlab-ci.yml` into the consumer repository as `.gitlab-ci.yml` or include it from an existing pipeline
+
+That pipeline:
+
+1. installs `uv`
+2. runs `uv sync`
+3. generates a diagram for `${CI_PROJECT_URL}`
+4. uploads `artifacts/repository-diagram.svg` as a pipeline artifact
+
+## Publishing checklist for `uv add gitlabdiagram`
+
+To make `uv add gitlabdiagram` work end-to-end from package indexes:
+
+1. choose the final published package name in `/home/runner/work/gitdiagram-gitlab/gitdiagram-gitlab/pyproject.toml`
+2. create accounts for PyPI and TestPyPI
+3. configure trusted publishing for this GitHub repository in both indexes
+4. copy `/home/runner/work/gitdiagram-gitlab/gitdiagram-gitlab/examples/publish-python-package.yml` into `.github/workflows/publish-python-package.yml`
+5. trigger the workflow manually with the `testpypi` target
+6. verify the uploaded package on TestPyPI
+7. test installation from TestPyPI in a clean environment
+8. publish to PyPI after TestPyPI verification succeeds
+9. confirm that a fresh project can run `uv add gitlabdiagram`
+
+### TestPyPI verification commands
+
+Create a clean test project and install from TestPyPI:
+
+```bash
+mkdir /tmp/gitlabdiagram-test && cd /tmp/gitlabdiagram-test
+uv init
+uv add --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ gitlabdiagram
+```
+
+Then smoke test the package:
+
+```bash
+uv run python -c "from gitlabdiagram import generate_diagram_image; print(generate_diagram_image)"
+```
+
+### PyPI release checklist
+
+- make sure the package version in `pyproject.toml` is new
+- run local validation:
+
+```bash
+uv run pytest --cov=gitlabdiagram --cov-report=term-missing
+uv build
+```
+
+- publish to TestPyPI first
+- verify install with `uv add ...` from TestPyPI
+- publish to PyPI
+- verify consumer installation:
+
+```bash
+mkdir /tmp/gitlabdiagram-prod && cd /tmp/gitlabdiagram-prod
+uv init
+uv add gitlabdiagram
+```
+
+### Notes
+
+- the example publishing workflow uses GitHub Actions OIDC trusted publishing via `id-token: write`
+- if you do not want trusted publishing, replace that setup with API-token-based publishing in GitHub secrets
+- until the package is published, consumers should keep using:
+
+```bash
+uv add git+https://github.com/rachanaaaa/gitdiagram-gitlab
+```
+
+## API
+
+### `generate_diagram_image(...)`
+
+Runs the full package pipeline:
+
+1. detect repository provider
+2. fetch repository metadata and structure
+3. render one SVG diagram image
+4. save the image to disk
+
+### `render_repository_diagram_svg(repository_data, ...)`
+
+Renders a standalone SVG string when you already have normalized repository data.
+
+## Output
+
+The package currently generates:
+
+- `.svg` image output only
+
+The package does not generate:
+
+- videos
+- reels
+- frontend code
+- interactive UI
+
+## Supporting APIs
+
+The package also exports:
+
+- `parse_gitlab_url`
+- `detect_repository_type`
+- `fetch_repository_data`
+- `GitLabApiClient`
+- `GitLabAuthenticationError`
+- `GitLabNotFoundError`
+- `GitLabRateLimitError`
+
+## Development
+
+```bash
+uv run pytest --cov=gitlabdiagram
+uv build
+```
+
+## Contributing
+
+See [CONTRIBUTING.md](./CONTRIBUTING.md).
