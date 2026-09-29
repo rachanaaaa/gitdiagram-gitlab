@@ -1,0 +1,19 @@
+stages:
+  - diagram
+
+generate_repository_diagram:
+  stage: diagram
+  image: python:3.12
+  before_script:
+    - python -m pip install uv
+    - uv sync
+  script:
+    - >
+      uv run gitlabdiagram
+      --repository-url "${CI_PROJECT_URL}"
+      --token "${GITLABDIAGRAM_TOKEN}"
+      --output-path artifacts/repository-diagram.svg
+  artifacts:
+    when: always
+    paths:
+      - artifacts/repository-diagram.svg

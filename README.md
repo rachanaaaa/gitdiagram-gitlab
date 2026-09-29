@@ -88,6 +88,36 @@ If the package has not been published yet, replace the one-time install command 
 uv add git+https://github.com/rachanaaaa/gitdiagram-gitlab
 ```
 
+### Consumer GitHub Actions example
+
+For GitHub-hosted repositories, copy:
+
+- `/home/runner/work/gitdiagram-gitlab/gitdiagram-gitlab/examples/consumer-repo-python-package-ci.yml`
+
+into:
+
+- `.github/workflows/generate-repository-diagram.yml`
+
+### Consumer GitLab CI example
+
+For GitLab-hosted repositories:
+
+1. add the package to the repository:
+
+```bash
+uv add gitlabdiagram
+```
+
+2. set a CI/CD variable named `GITLABDIAGRAM_TOKEN` if the repository is private
+3. copy `/home/runner/work/gitdiagram-gitlab/gitdiagram-gitlab/examples/consumer-repo-gitlab-ci.yml` into the consumer repository as `.gitlab-ci.yml` or include it from an existing pipeline
+
+That pipeline:
+
+1. installs `uv`
+2. runs `uv sync`
+3. generates a diagram for `${CI_PROJECT_URL}`
+4. uploads `artifacts/repository-diagram.svg` as a pipeline artifact
+
 ## API
 
 ### `generate_diagram_image(...)`
