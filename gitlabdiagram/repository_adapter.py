@@ -48,9 +48,9 @@ def detect_repository_type(url: str) -> str:
     if "://" in value:
         parsed = urlparse(value)
         return "gitlab" if (parsed.hostname and "gitlab" in parsed.hostname) or "/-/" in parsed.path else "github"
-    if path_only.startswith("github.com/"):
+    if first_segment == "github.com":
         return "github"
-    if path_only.startswith("gitlab.com/") or "/-/" in path_only:
+    if first_segment == "gitlab.com" or "/-/" in path_only:
         return "gitlab"
     if _is_host_like_segment(first_segment) and first_segment and "gitlab" in first_segment:
         return "gitlab"
@@ -61,8 +61,9 @@ def _parse_github_url(value: str) -> tuple[str, str, str]:
     normalized = _strip_trailing_slashes(value.strip())
     if not normalized:
         raise ValueError("GitHub repository URL is required")
-    path_only = normalized.split("?", 1)[0].split("#", 1)[0].lower()
-    raw = normalized if "://" in normalized else (f"https://{normalized}" if path_only.startswith("github.com/") else f"https://github.com/{normalized}")
+    path_only = normalized.split("?", 1)[0].split("#", 1)[0]
+    path_segments = [segment for segment in path_only.lower().split("/") if segment]
+    raw = normalized if "://" in normalized else (f"https://{normalized}" if path_segments and path_segments[0] == "github.com" else f"https://github.com/{normalized}")
     parsed = urlparse(raw)
     segments = [segment for segment in parsed.path.split("/") if segment]
     if len(segments) < 2:
