@@ -66,7 +66,27 @@ The repository includes `/home/runner/work/gitdiagram-gitlab/gitdiagram-gitlab/.
 4. runs the CLI against the current GitHub repository
 5. uploads the generated SVG as a workflow artifact
 
-A consuming repository can use the same CLI pattern once the package is published.
+## Consumer repository example
+
+If another repository wants to generate its own diagram in CI, do this once in that repository:
+
+```bash
+uv add gitlabdiagram
+```
+
+Then commit the updated `pyproject.toml` and `uv.lock`, and add the workflow from `/home/runner/work/gitdiagram-gitlab/gitdiagram-gitlab/examples/consumer-repo-python-package-ci.yml`.
+
+That workflow will:
+
+1. install the consumer repository dependencies with `uv sync`
+2. run `uv run gitlabdiagram` against `https://github.com/${{ github.repository }}`
+3. upload the generated SVG as a workflow artifact
+
+If the package has not been published yet, replace the one-time install command with:
+
+```bash
+uv add git+https://github.com/rachanaaaa/gitdiagram-gitlab
+```
 
 ## API
 

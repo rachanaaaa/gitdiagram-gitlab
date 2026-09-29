@@ -1,0 +1,41 @@
+name: Generate repository diagram
+
+on:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  diagram:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Install project dependencies
+        run: uv sync
+
+      - name: Generate diagram for this repository
+        env:
+          GITLABDIAGRAM_TOKEN: ${{ github.token }}
+        run: |
+          uv run gitlabdiagram \
+            --repository-url "https://github.com/${{ github.repository }}" \
+            --token "$GITLABDIAGRAM_TOKEN" \
+            --output-path artifacts/repository-diagram.svg
+
+      - name: Upload diagram artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: repository-diagram
+          path: artifacts/repository-diagram.svg
