@@ -118,6 +118,67 @@ That pipeline:
 3. generates a diagram for `${CI_PROJECT_URL}`
 4. uploads `artifacts/repository-diagram.svg` as a pipeline artifact
 
+## Publishing checklist for `uv add gitlabdiagram`
+
+To make `uv add gitlabdiagram` work end-to-end from package indexes:
+
+1. choose the final published package name in `/home/runner/work/gitdiagram-gitlab/gitdiagram-gitlab/pyproject.toml`
+2. create accounts for PyPI and TestPyPI
+3. configure trusted publishing for this GitHub repository in both indexes
+4. copy `/home/runner/work/gitdiagram-gitlab/gitdiagram-gitlab/examples/publish-python-package.yml` into `.github/workflows/publish-python-package.yml`
+5. trigger the workflow manually with the `testpypi` target
+6. verify the uploaded package on TestPyPI
+7. test installation from TestPyPI in a clean environment
+8. publish to PyPI after TestPyPI verification succeeds
+9. confirm that a fresh project can run `uv add gitlabdiagram`
+
+### TestPyPI verification commands
+
+Create a clean test project and install from TestPyPI:
+
+```bash
+mkdir /tmp/gitlabdiagram-test && cd /tmp/gitlabdiagram-test
+uv init
+uv add --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ gitlabdiagram
+```
+
+Then smoke test the package:
+
+```bash
+uv run python -c "from gitlabdiagram import generate_diagram_image; print(generate_diagram_image)"
+```
+
+### PyPI release checklist
+
+- make sure the package version in `pyproject.toml` is new
+- run local validation:
+
+```bash
+uv run pytest --cov=gitlabdiagram --cov-report=term-missing
+uv build
+```
+
+- publish to TestPyPI first
+- verify install with `uv add ...` from TestPyPI
+- publish to PyPI
+- verify consumer installation:
+
+```bash
+mkdir /tmp/gitlabdiagram-prod && cd /tmp/gitlabdiagram-prod
+uv init
+uv add gitlabdiagram
+```
+
+### Notes
+
+- the example publishing workflow uses GitHub Actions OIDC trusted publishing via `id-token: write`
+- if you do not want trusted publishing, replace that setup with API-token-based publishing in GitHub secrets
+- until the package is published, consumers should keep using:
+
+```bash
+uv add git+https://github.com/rachanaaaa/gitdiagram-gitlab
+```
+
 ## API
 
 ### `generate_diagram_image(...)`
