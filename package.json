@@ -1,7 +1,7 @@
 {
   "name": "gitdiagram-gitlab",
   "version": "0.1.0",
-  "description": "GitLab integration module for GitDiagram projects",
+  "description": "Package-first repository diagram generator with GitLab support and image-only output",
   "type": "module",
   "packageManager": "bun@1.1.38",
   "main": "./dist/index.js",
@@ -19,6 +19,8 @@
   "keywords": [
     "gitdiagram",
     "gitlab",
+    "diagram",
+    "svg",
     "typescript"
   ],
   "author": "",
@@ -31,5 +33,6 @@
     "@vitest/coverage-v8": "^3.2.4",
     "typescript": "^5.9.2",
     "vitest": "^3.2.4"
-  }
+  },
+  "exports": "./dist/index.js"
 }

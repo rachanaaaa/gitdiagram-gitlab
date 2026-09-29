@@ -1,97 +1,96 @@
 # gitdiagram-gitlab
 
-GitLab support for GitDiagram, with a small compatibility layer that can normalize both GitLab and GitHub repositories into the same data shape.
+A package-first Git repository diagram generator with GitLab support. Install it, run one pipeline function, and save a single diagram image to disk.
 
-## Features
+## What it does
 
-- Parse GitLab URLs from `https://gitlab.com/group/project`, `gitlab.com/group/project`, or `group/project`
-- Support self-hosted GitLab instances and subgroup paths
-- Fetch project metadata, repository trees, and README content from the GitLab API
-- Normalize GitLab and GitHub repository data for GitDiagram-style generation pipelines
-- Test coverage for parser, API client, and adapter behavior
+- Fetches repository metadata, file trees, and README content from GitLab
+- Supports GitLab.com, self-hosted GitLab, and GitHub-style repository URLs
+- Renders a single standalone SVG diagram image
+- Saves the image to disk with no frontend, no video generation, and no reel workflow
 
-## Setup
+## Installation
 
 ```bash
-bun install
+bun install gitdiagram-gitlab
 ```
 
-## Scripts
+## Usage
+
+```ts
+import { generateDiagramImage } from 'gitdiagram-gitlab';
+
+const result = await generateDiagramImage({
+  repositoryUrl: 'https://gitlab.com/group/project',
+  token: process.env.GITLAB_TOKEN,
+  outputPath: './output/project-diagram.svg'
+});
+
+console.log(result.outputPath);
+console.log(result.imageFormat); // svg
+```
+
+If `outputPath` is omitted, the package writes `<project>-diagram.svg` into the current working directory.
+
+## API
+
+### `generateDiagramImage(options)`
+
+Runs the full package pipeline:
+
+1. Detect repository provider
+2. Fetch repository metadata and structure
+3. Render one SVG diagram image
+4. Save the image to disk
+
+```ts
+await generateDiagramImage({
+  repositoryUrl: 'https://gitlab.example.com/team/platform/project',
+  token: process.env.GITLAB_TOKEN,
+  outputPath: './diagram.svg',
+  maxFiles: 20,
+  width: 1400
+});
+```
+
+The `token` must match the detected provider.
+
+### `renderRepositoryDiagramSvg(repositoryData, options?)`
+
+Renders a standalone SVG string when you already have normalized repository data.
+
+## Output
+
+The package currently generates:
+
+- `.svg` image output only
+
+The package does not generate:
+
+- videos
+- reels
+- frontend code
+- interactive UI
+
+## Supporting APIs
+
+The package also exports:
+
+- `parseGitLabUrl`
+- `detectRepositoryType`
+- `fetchRepositoryData`
+- `GitLabApiClient`
+- `GitLabAuthenticationError`
+- `GitLabNotFoundError`
+- `GitLabRateLimitError`
+
+## Development
 
 ```bash
 bun test
 bun run build
 bun run coverage
 ```
-
-## API
-
-### `parseGitLabUrl(input)`
-
-Parses a GitLab repository reference into:
-
-```ts
-{
-  instanceUrl: string;
-  owner: string;
-  project: string;
-}
-```
-
-Examples:
-
-```ts
-parseGitLabUrl('https://gitlab.com/group/project');
-parseGitLabUrl('gitlab.example.com/team/platform/project');
-parseGitLabUrl('group/project');
-```
-
-### `GitLabApiClient`
-
-```ts
-const client = new GitLabApiClient('https://gitlab.com', process.env.GITLAB_TOKEN);
-
-const project = await client.getProjectMetadata('group', 'project');
-const files = await client.getFileTree('group', 'project', project.defaultBranch);
-const readme = await client.getProjectReadme('group', 'project', project.defaultBranch);
-```
-
-### `detectRepositoryType(url)`
-
-Returns `'github'` or `'gitlab'`. Ambiguous `owner/project` inputs default to GitHub for compatibility with existing GitDiagram flows.
-
-### `fetchRepositoryData(url, token?)`
-
-Fetches normalized repository data from GitLab or GitHub:
-
-```ts
-const repository = await fetchRepositoryData('https://gitlab.com/group/project', process.env.GITLAB_TOKEN);
-
-console.log(repository.provider); // gitlab
-console.log(repository.project.defaultBranch);
-console.log(repository.files.length);
-```
-
-The optional `token` must match the detected provider: use a GitLab personal access token for GitLab URLs and a GitHub token for GitHub-style URLs.
-
-## Data model
-
-The library exports:
-
-- `GitLabProject`
-- `GitLabFile`
-- `GitLabData`
-- `RepositoryData`
-
-`RepositoryData` is the normalized shape intended for GitDiagram-compatible generation pipelines.
-The `project.id` field is optional and populated when the upstream provider returns a stable repository identifier.
-
-## Authentication and errors
-
-- Pass a GitLab personal access token to access private repositories
-- GitLab authentication failures throw `GitLabAuthenticationError`
-- Missing resources throw `GitLabNotFoundError`
-- Rate-limited requests throw `GitLabRateLimitError`
 
 ## Contributing
 
